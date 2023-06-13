@@ -13,6 +13,15 @@ import api
 
 #----------Loading and Validating Input CSVs----------
 
+def handle_load_api_version(api_version: str, parser: Parser) -> None:
+    if api_version == "":
+        api_version = input.prompt_user(f'The Api Version of the PT instance you want to import a .ptrac to is required for successful generation.\nEnter the API Version of your instance. This can be found at the bottom right of the Account Admin page in PT')
+        if len(api_version.split(".")) != 3:
+            if input.retry(f'The entered value was not a valid version'):
+                return handle_load_api_version("", parser)
+        parser.doc_version = api_version
+
+
 def handle_load_csv_headers_mapping(path, parser: Parser):
     csv_headers_mapping = {}
 
@@ -123,6 +132,12 @@ if __name__ == '__main__':
 
     # loads and validates csv data
     log.info(f'---Starting data loading---')
+    api_version = ""
+    if args.get('api_version') != None and args.get('api_version') != "":
+        api_version = args.get('api_version')
+        log.info(f'Set API Version to \'{api_version}\' from config...')
+    handle_load_api_version(api_version, parser)
+
     csv_headers_file_path = ""
     if args.get('csv_headers_file_path') != None and args.get('csv_headers_file_path') != "":
         csv_headers_file_path = args.get('csv_headers_file_path')
@@ -154,7 +169,7 @@ if __name__ == '__main__':
         parser.import_data(auth)
         log.info(f'Import Complete. Additional logs were added to {log.LOGS_FILE_PATH}')
 
-    if input.continue_anyways(f'IMPORTANT: Data will be saved to Ptrac(s).\nYou can save each report as a Ptrac. ONLY report and finding information will be saved. NO ASSET will be added to the Ptrac.\nWould you like to create and save a ptrac for {len(parser.reports)} report(s).'):
+    if input.continue_anyways(f'IMPORTANT: Data will be saved to Ptrac(s).\nYou can save each parsed report as a Ptrac. You cannot import client data from a Ptrac.\nWould you like to create and save a Ptrac for {len(parser.reports)} report(s).'):
         parser.save_data_as_ptrac()
         log.info(f'Ptrac(s) creation complete. File(s) can be found in \'exported-ptracs\' folder. Additional logs were added to {log.LOGS_FILE_PATH}')
     

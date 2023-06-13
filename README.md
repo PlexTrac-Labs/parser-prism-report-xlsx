@@ -15,7 +15,7 @@ pipenv install
 After setting up the Python environment, you will need to setup a few things before you can run the script.
 
 ## CSV with Data to Import
-In the `config.yaml` file you should add the file path to the CSV with data yo're trying to import.
+In the `config.yaml` file you should add the file path to the CSV with data you're trying to import.
 
 ## Header Mapping CSV
 To import a CSV with data, you must create a mapping to tell the script where the data for each column should go in Plextrac.
@@ -34,9 +34,12 @@ In the `config.yaml` file you should add the full URL to your instance of Plextr
 The config also can store your username and password. Plextrac authentication lasts for 15 mins before requiring you to re-authenticate. The script is set up to do this automatically. If these 3 values are set in the config, and MFA is not enable for the user, the script will take those values and authenticate automatically, both initially and every 15 mins. If any value is not saved in the config, you will be prompted when the script is run and during re-authentication.
 
 ## Report Template & Findings Layout
-In the `config.yaml` file you can add a name of an existing Report Template and Findings Layout. If these values are present, it will verify the template exists and link it to all reports created. Upon navigating to the Report Details tab of a report, you will see the respective dropdown prepopulated.
+In the `config.yaml` file you can add the name of an existing Report Template and Findings Layout. If these values are present, it will verify the template exists and link it to all reports created. Upon navigating to the Report Details tab of a report, you will see the respective dropdown prepopulated.
 
 In the platform there can be duplicate names for report templates and findings layouts. For this script to know which template you want to add, there can only be a single template with the same name you added to the config file.
+
+## API Version
+The Api Version of the Plextrac instance you plan to import .ptrac files to is required for successful .ptrac generation. The API Version can be found at the bottom right of the Account Admin page in Plextrac. This value can be entered in the `config.yaml` file.
 
 # Usage
 After setting everything up you can run the script with the following command. You should be in the folder where you cloned the repo when running the following.
@@ -53,12 +56,13 @@ The following values can either be added to the `config.yaml` file or entered wh
 - MFA Token (if enabled)
 - File path to CSV containing data to import
 - File path to CSV containing header mappings to Plextrac location keys
+- API version
 
 ## Script Execution Flow
 When the script starts it will load in config values and try to:
 - Authenticates user
 - Read and verify CSV data
-- Create a file to write logs to
+- Create a log file
 
 Once this setup is complete it will start looping through each row in CSV and try to:
 - Determine which client the row belongs to based on the client_name location key mapping
@@ -68,7 +72,7 @@ Once this setup is complete it will start looping through each row in CSV and tr
 - Create a new finding and add all finding information
 - If any asset location keys were mapped, create a new asset and add all asset information
 
-After parsing it will create new clients, reports, findings, and assets in Plextrac.
+After parsing the CSV, the user can choose to import client, report, finding, and asset data directly into Plextrac via the API AND/OR save .ptrac files for each report that was parsed from the CSV. Importing data via the API allows you to create new clients and add any parsed client information, however, this requires multiple API calls per object and may take some time depending on CSV size. Generated .ptrac files can be imported into a client in Plextrac to create a new report that includes all report information that was parsed from the CSV. You can also import a .ptrac into an existing report in Plextrac to import the findings it contains.
 
 ## Logging
 The script is run in INFO mode so you can see progress on the command line. A log file will be created when the script is run and saved to the root directory where the script is. You can search this file for "WARNING" or "ERROR" to see if something did not get parsed or imported correctly. Any critical level issue will stop the script immediately.

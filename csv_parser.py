@@ -740,6 +740,7 @@ class Parser():
         'ports': {},
         'locationUrl': "",
         'vulnerableParameters': [],
+        'evidence': [],
         'notes': ""
     }
 
@@ -822,6 +823,7 @@ class Parser():
         self.parser_date: str = time.strftime("%m/%d/%Y", time.localtime(self.parser_time_seconds))
         self.parser_time: str = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime(self.parser_time_seconds))
 
+        self.doc_version = None
         self.client_template['name'] = f'Custom CSV Import {self.parser_date}'
         self.report_template['name'] = f'Custom CSV Import Report {self.parser_date}'
 
@@ -966,6 +968,30 @@ class Parser():
         finding['affected_assets'][asset_id] = affected_asset
 
         return finding
+    
+
+    def update_asset_list_fields(self, og_asset, dup_asset, update_ports: bool = True) -> None:
+        """
+        Adds extra values from the OS, known IPs, tags, and ports fields from a duplicate asset to the original.
+        Updates original asset and does not return anything.
+
+        Important: Updating finding.affected_assets reference with another asset reference will incorrectly add additional affected ports - Must set update_ports to False
+
+        :param og_asset: The reference to the original asset 
+        :type og_asset: dict of asset - stored in self.assets or a copy that was created from an asset in that list. Includes ptrac ReportAssets or ptrac finding.affected_assets
+        :param dup_asset: The reference to the duplicate asset
+        :type dup_asset: dict of asset - stored in self.assets
+        :param update_ports: Should new port numbers be added to original asset, defaults to True
+        :type update_ports: bool, optional
+        """
+        utils.merge_sanitized_str_lists(og_asset['operating_system'], dup_asset['operating_system'])
+        utils.merge_sanitized_str_lists(og_asset['knownIps'], dup_asset['knownIps'])
+        utils.merge_sanitized_str_lists(og_asset['tags'], dup_asset['tags'])
+        if update_ports:
+            for port_id, port_data in dup_asset['ports'].items():
+                if port_id not in og_asset['ports']:
+                    og_asset['ports'][port_id] = port_data
+
     #----------End post parsing handling functions----------
 
 
@@ -1356,6 +1382,8 @@ class Parser():
 
     # tag
     def add_tag(self, header, obj, mapping, value):
+        if "," in value:
+            log.exception(f'Single tag value of \'{value}\' contains a \',\'. Will be processed into the tag \'{utils.format_key(value)}\'.Is this value multiple tags? Update the mapping file \'{header}\' column key from \'{str(mapping["object_type"]).lower()}_tag\' to \'{str(mapping["object_type"]).lower()}_multi_tag\'')
         utils.add_tag(obj['tags'], value)
 
     # multiple tags
@@ -1421,11 +1449,11 @@ class Parser():
             new_value = value.strip()
             log.debug(f'Adding \'{new_value}\' to \'{mapping["path"][0]}\' list with existing values {obj[mapping["path"][0]]}')
             if value not in obj[mapping['path'][0]]:
-                if mapping['path'][0] == "knownIps": # add to list of known IPs, must be a valid IPv4
-                    if utils.is_valid_ipv4_address(new_value):
+                if mapping['path'][0] == "knownIps": # add to list of known IPs, must be a valid IPv4 or IPv6
+                    if utils.is_valid_ipv4_address(new_value) or utils.is_valid_ipv6_address(new_value):
                         obj[mapping['path'][0]].append(new_value)
                     else:
-                        log.warning(f'IP \'{new_value}\' is not a valid IPv4 address. Skipping...')
+                        log.warning(f'IP \'{new_value}\' is not a valid IPv4 or IPv6 address. Skipping...')
                 else: # add to any list with no validation
                     obj[mapping['path'][0]].append(new_value)
 
@@ -1619,7 +1647,23 @@ class Parser():
                 asset = self.assets[asset_sid]
                 if asset['original_asset_sid'] != None:
                     log.info(f'Found existing asset <{asset["asset"]}>')
-                    asset['asset_id'] = self.assets[asset['original_asset_sid']]['asset_id']
+                    # purposly not making a copy we need to update original asset list fields with new entries
+                    og_asset = self.assets[asset['original_asset_sid']]
+                    # update og asset - OS, known IPs, tags, and ports
+                    self.update_asset_list_fields(og_asset, asset)
+                    # update asset that was previously created - same as creation process
+                    payload = deepcopy(og_asset)
+                    payload.pop("sid")
+                    payload.pop("client_sid")
+                    payload.pop("finding_sid")
+                    payload.pop("dup_num")
+                    payload.pop("is_multi")
+                    log.info(f'Updating client asset <{payload["asset"]}>')
+                    response = api._v1.assets.update_asset(auth.base_url, auth.get_auth_headers(), client_id, og_asset['asset_id'], payload)
+                    if response.json.get("message") != "success":
+                        log.warning(f'Could not update asset in PT with additional data. Skipping')
+                    # update this duplicate asset to point to the same asset_id that as assgined by PT when the og asset was created
+                    asset['asset_id'] = og_asset.get('asset_id', None)
                     continue
 
                 payload = deepcopy(asset)
@@ -1681,7 +1725,7 @@ class Parser():
 
                         num_assets_to_update = 0
                         for asset_sid in finding['assets']:
-                            pt_asset_id = self.assets[asset_sid]['asset_id']
+                            pt_asset_id = self.assets[asset_sid].get('asset_id', None)
                             if pt_asset_id == None:
                                 log.warning(f'Asset \'{self.assets[asset_sid]["asset"]}\' was not created successfully. Cannot add to finding. Skipping...')
                             else:
@@ -1711,7 +1755,9 @@ class Parser():
                 "doc_type": "report"
             },
             "flaws_array": [],
-            "summary": {},
+            "summary": {
+                "ReportAssets": {}
+            },
             "evidence": [],
             "client_info": {
                 "doc_type": "client",
@@ -1740,6 +1786,8 @@ class Parser():
 
             # reports
             for report_sid in client['reports']:
+                report_assets = {} # this list is created here, but needs to be populated when looping through the affected assets
+
                 report = deepcopy(self.reports[report_sid])
                 report_info = deepcopy(report)
                 report_info.pop("findings")
@@ -1754,8 +1802,9 @@ class Parser():
                 ptrac['report_info'] = report_info
 
                 # findings
-                for finding_sid in self.reports[report_sid]['findings']:
-                    finding_info = deepcopy(self.findings[finding_sid])
+                for finding_sid in report['findings']:
+                    finding = deepcopy(self.findings[finding_sid])
+                    finding_info = deepcopy(finding)
                     finding_info.pop("assets")
                     finding_info.pop("sid")
                     finding_info.pop("client_sid")
@@ -1768,6 +1817,7 @@ class Parser():
                     finding_info['doc_type'] = "flaw"
                     finding_info['source'] = "plextrac"
                     finding_info['visibility'] = "published"
+                    finding_info['doc_version'] = self.doc_version
                     # dates
                     if finding_info.get("createdAt") == None:
                         finding_info['createdAt'] = self.parser_time_milli_seconds
@@ -1797,7 +1847,97 @@ class Parser():
                         finding_info['visibility']
                     ]
 
+                    # affected assets
+                    for asset_sid in finding['assets']:
+                        # get a copy of the asset, checking duplicates and gettin the original asset
+                        asset = deepcopy(self.assets[asset_sid])
+                        asset_sid_str = f'{asset["sid"]}'
+                        if asset['original_asset_sid'] != None:
+                            og_asset = self.assets[asset['original_asset_sid']]
+                            self.update_asset_list_fields(og_asset, asset)
+                            asset = deepcopy(og_asset)
+                            asset_sid_str = f'{asset["sid"]}'
+
+
+                            # update ReportAssets og asset reference in ptrac
+
+
+                            # update og asset for the future when added to ptrac as affected asset core
+                            # update instances of og asset already saved in ptrac
+
+
+
+                            # log.info(f'Found existing asset <{asset["asset"]}>')
+                            # # purposly not making a copy we need to update original asset list fields with new entries
+                            # og_asset = self.assets[asset['original_asset_sid']]
+                            # # update og asset - OS, known IPs, tags, and ports
+                            # utils.merge_sanitized_str_lists(og_asset['operating_system'], asset['operating_system'])
+                            # utils.merge_sanitized_str_lists(og_asset['knownIps'], asset['knownIps'])
+                            # utils.merge_sanitized_str_lists(og_asset['tags'], asset['tags'])
+                            # for port_id, port_data in asset['ports'].items():
+                            #     if port_id not in og_asset['ports']:
+                            #         og_asset['ports'][port_id] = port_data
+                            # # update asset that was previously created
+                            # payload = deepcopy(og_asset)
+                            # payload.pop("sid")
+                            # payload.pop("client_sid")
+                            # payload.pop("finding_sid")
+                            # payload.pop("dup_num")
+                            # payload.pop("is_multi")
+                            # log.info(f'Updating client asset <{payload["asset"]}>')
+                            # response = api._v1.assets.update_asset(auth.base_url, auth.get_auth_headers(), client_id, og_asset['asset_id'], payload)
+                            # if response.json.get("message") != "success":
+                            #     log.warning(f'Could not update asset in PT with additional data. Skipping')
+                            # # update this duplicate asset to point to the same asset_id that as assgined by PT when the og asset was created
+                            # asset['asset_id'] = og_asset.get('asset_id', None)
+                            # continue
+
+                        # create a copy for the ReportAssets that will be modified to match ptrac specifications
+                        client_asset_info = deepcopy(asset)
+                        client_asset_info.pop("sid")
+                        client_asset_info.pop("client_sid")
+                        client_asset_info.pop("finding_sid")
+                        client_asset_info.pop("original_asset_sid")
+                        client_asset_info.pop("dup_num")
+                        client_asset_info.pop("is_multi")
+                        # when the script creates assets through the api asset's ID is saved to the asset_id property on an asset in parsed asset list. used for later deduplication
+                        # removing `asset_id` here instead of reworking the api creation section
+                        # the second parameter of None prevents the .pop from throwing an error if the asset_id was never added due to failed creation attempt
+                        client_asset_info.pop("asset_id", None)
+                        client_asset_info['id'] = asset_sid_str
+                        client_asset_info['parent_asset'] = None
+
+                        if asset_sid_str not in list(report_assets.keys()):
+                            # add client asset to ReportAssets
+                            report_assets[asset_sid_str] = client_asset_info
+                        else:
+                            # update ReportAssets reference with possible additional data
+                            existing_report_asset = report_assets[asset_sid_str]
+                            self.update_asset_list_fields(existing_report_asset, client_asset_info)
+                            # updates affected asset instances that were already saved to the ptrac with possible additional data
+                            existing_ptrac_findings = ptrac['flaws_array']
+                            findings_to_update = list(filter(lambda x: asset_sid_str in x['affected_assets'].keys(), existing_ptrac_findings))
+                            for f in findings_to_update:
+                                for asset_id, existing_affected_asset in f['affected_assets'].items():
+                                    if asset_id == asset_sid_str:
+                                        self.update_asset_list_fields(existing_affected_asset, client_asset_info, update_ports=False)
+                        
+                        # create a copy of the client asset and modify to create and add the affected asset following the ptrac schema
+                        affected_asset_info = deepcopy(client_asset_info)
+                        finding_info = self.add_asset_to_finding(finding_info, affected_asset_info, finding_sid, asset["sid"])
+
+                        # update the client asset with open ports
+                        # - the affected ported are stored on the affected asset on a finding record
+                        # - these should be backfilled to the client asset's open ports list
+                        asset_ports = report_assets.get(asset_sid_str, {}).get("ports")
+                        if asset_ports != None:
+                            for k, v in affected_asset_info['ports'].items():
+                                if k not in asset_ports.keys():
+                                    asset_ports[k] = v
+
                     ptrac['flaws_array'].append(finding_info)
+
+                ptrac['summary']['ReportAssets'] = report_assets
 
                 
                 # save report as ptrac

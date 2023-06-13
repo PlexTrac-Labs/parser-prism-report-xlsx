@@ -2,6 +2,7 @@ import re
 import time
 from hashlib import sha256
 from typing import List
+from copy import copy, deepcopy
 
 import utils.log_handler as logger
 log = logger.log
@@ -36,6 +37,20 @@ def add_tag(list: List[str], tag: str) -> None:
     new_tag = format_key(tag)
     if new_tag not in list:
         list.append(new_tag)
+
+
+def merge_sanitized_str_lists(list1: List[str], list2: List[str]) -> None:
+    """
+    Appends the new values from a second list into the first list
+
+    :param list1: List that should be appended to
+    :type list1: List[str]
+    :param list2: List of values to append if they don't already exist
+    :type list2: List[str]
+    """
+    resulting_list = list1
+    resulting_list.extend(x for x in list2 if x not in resulting_list)
+
 
 def try_parsing_date(possible_date_str: str) -> time.struct_time:
     """
@@ -103,6 +118,19 @@ def is_valid_ipv4_address(address: str) -> bool:
     """
     ipv4_pattern = re.compile(r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')
     return ipv4_pattern.match(address) is not None
+
+
+def is_valid_ipv6_address(address: str) -> bool:
+    """
+    Checks if a string has the correct IPv6 format.
+
+    :param address: ipv6 string to check
+    :type address: str
+    :return: boolean result of validation
+    :rtype: bool
+    """
+    ipv6_pattern = re.compile(r'^(([0-9a-fA-F]{1,4}):){7}([0-9a-fA-F]{1,4})$')
+    return ipv6_pattern.match(address) is not None
 
 
 def is_valid_cve(cve: str) -> bool:

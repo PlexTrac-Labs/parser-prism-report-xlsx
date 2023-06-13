@@ -20,6 +20,8 @@ script_info = ["================================================================
                "=------------------------------------------------------------------=",
                "= Takes a CSV with rows representing client, report, finding and   =",
                "= asset data and a CSV with how to map each column to a            =",
-               "= location in Plextrac. Parses the CSV and import data to Plextrac =",
+               "= location in Plextrac.                                            =",
+               "= Parses the CSV and gives the user the option to import data      =",
+               "= directly to Plextrac or generate a Ptrac for each report parsed. =",
                "===================================================================="
             ]
