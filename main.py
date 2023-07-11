@@ -16,10 +16,13 @@ import api
 def handle_load_api_version(api_version: str, parser: Parser) -> None:
     if api_version == "":
         api_version = input.prompt_user(f'The Api Version of the PT instance you want to import a .ptrac to is required for successful generation.\nEnter the API Version of your instance. This can be found at the bottom right of the Account Admin page in PT')
-        if len(api_version.split(".")) != 3:
-            if input.retry(f'The entered value was not a valid version'):
-                return handle_load_api_version("", parser)
+    if len(api_version.split(".")) == 3:
         parser.doc_version = api_version
+        return
+    else:
+        if input.retry(f'The entered value {api_version} was not a valid version'):
+            return handle_load_api_version("", parser)
+    
 
 
 def handle_load_csv_headers_mapping(path, parser: Parser):
