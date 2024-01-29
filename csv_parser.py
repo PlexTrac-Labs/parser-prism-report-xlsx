@@ -1635,7 +1635,7 @@ class Parser():
             payload.pop("sid")
             log.info(f'Creating client <{payload["name"]}>')
             
-            response = api._v1.clients.create_client(auth.base_url, auth.get_auth_headers(), payload)
+            response = api.clients.create_client(auth.base_url, auth.get_auth_headers(), payload)
             if response.json.get("status") != "success":
                 log.warning(f'Could not create client. Skipping all reports and findings under this client...')
                 continue
@@ -1659,7 +1659,7 @@ class Parser():
                     payload.pop("dup_num")
                     payload.pop("is_multi")
                     log.info(f'Updating client asset <{payload["asset"]}>')
-                    response = api._v1.assets.update_asset(auth.base_url, auth.get_auth_headers(), client_id, og_asset['asset_id'], payload)
+                    response = api.assets.update_asset(auth.base_url, auth.get_auth_headers(), client_id, og_asset['asset_id'], payload)
                     if response.json.get("message") != "success":
                         log.warning(f'Could not update asset in PT with additional data. Skipping')
                     # update this duplicate asset to point to the same asset_id that as assgined by PT when the og asset was created
@@ -1673,7 +1673,7 @@ class Parser():
                 payload.pop("dup_num")
                 payload.pop("is_multi")
                 log.info(f'Creating asset <{payload["asset"]}>')
-                response = api._v1.assets.create_asset(auth.base_url, auth.get_auth_headers(), client_id, payload)
+                response = api.assets.create_asset(auth.base_url, auth.get_auth_headers(), client_id, payload)
                 if response.json.get("message") != "success":
                     asset['asset_id'] = None
                     log.warning(f'Could not create asset. Skipping...')
@@ -1688,7 +1688,7 @@ class Parser():
                 payload.pop("sid")
                 payload.pop("client_sid")
                 log.info(f'Creating report <{payload["name"]}>')
-                response = api._v1.reports.create_report(auth.base_url, auth.get_auth_headers(), client_id, payload)
+                response = api.reports.create_report(auth.base_url, auth.get_auth_headers(), client_id, payload)
                 if response.json.get("message") != "success":
                     log.warning(f'Could not create report. Skipping all findings under this report...')
                     continue
@@ -1705,7 +1705,7 @@ class Parser():
                     payload.pop("report_sid")
                     payload.pop("affected_asset_sid")
                     log.info(f'Creating finding <{payload["title"]}>')
-                    response = api._v1.findings.create_finding(auth.base_url, auth.get_auth_headers(), client_id, report_id, payload)
+                    response = api.findings.create_finding(auth.base_url, auth.get_auth_headers(), client_id, report_id, payload)
                     if response.json.get("message") != "success":
                         log.warning(f'Could not create finding. Skipping...')
                         continue
@@ -1716,7 +1716,7 @@ class Parser():
                     if len(finding['assets']) > 0:
                         log.info(f'Updating finding <{finding["title"]}> with asset information')
 
-                        response = api._v1.findings.get_finding(auth.base_url, auth.get_auth_headers(), client_id, report_id, finding_id)
+                        response = api.findings.get_finding(auth.base_url, auth.get_auth_headers(), client_id, report_id, finding_id)
                         pt_finding = response.json
                         # when creating a finding certain fields are not validated (cwes, cvss3.1 vector, etc.). IF these fields have invalid data that
                         # would prevent an autosave, the finding will be created successfully, but then crash the api when the finding is called the first time
@@ -1729,7 +1729,7 @@ class Parser():
                             if pt_asset_id == None:
                                 log.warning(f'Asset \'{self.assets[asset_sid]["asset"]}\' was not created successfully. Cannot add to finding. Skipping...')
                             else:
-                                response = api._v1.assets.get_asset(auth.base_url, auth.get_auth_headers(), client_id, pt_asset_id)
+                                response = api.assets.get_asset(auth.base_url, auth.get_auth_headers(), client_id, pt_asset_id)
                                 pt_asset  = response.json
                                 pt_finding = self.add_asset_to_finding(pt_finding, pt_asset, finding_sid, asset_sid)
                                 num_assets_to_update += 1
@@ -1740,7 +1740,7 @@ class Parser():
                         if num_assets_to_update != len(finding['assets']):
                             log.warning(f'Some assets cannot be adding. Adding {num_assets_to_update}/{len(finding["assets"])}')
 
-                        response = api._v1.findings.update_finding(auth.base_url, auth.get_auth_headers(), client_id, report_id, finding_id, pt_finding)
+                        response = api.findings.update_finding(auth.base_url, auth.get_auth_headers(), client_id, report_id, finding_id, pt_finding)
                         if response.json.get("message") != "success":
                             log.warning(f'Could not update finding. Skipping...')
                             continue
@@ -1849,7 +1849,7 @@ class Parser():
 
                     # affected assets
                     for asset_sid in finding['assets']:
-                        # get a copy of the asset, checking duplicates and gettin the original asset
+                        # get a copy of the asset, checking duplicates and getting the original asset
                         asset = deepcopy(self.assets[asset_sid])
                         asset_sid_str = f'{asset["sid"]}'
                         if asset['original_asset_sid'] != None:

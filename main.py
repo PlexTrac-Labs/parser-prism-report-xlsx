@@ -71,8 +71,7 @@ def handle_add_report_template_name(report_template_name, parser: Parser):
     """
     report_templates = []
 
-    response = api._v1.templates.list_report_templates(auth.base_url, auth.get_auth_headers(), auth.tenant_id)
-    # response = api.report_template.list(auth.base_url, auth.get_auth_headers(), auth.tenant_id)
+    response = api._templates.report_templates.list_report_templates(auth.base_url, auth.get_auth_headers(), auth.tenant_id)
     if type(response) == list:
         report_templates = list(filter(lambda x: x['data']['template_name'] == report_template_name, response))
 
@@ -98,8 +97,7 @@ def handle_add_findings_template_name(findings_template_name, parser: Parser):
     """
     findings_templates = []
 
-    response = api._v1.templates.list_findings_templates(auth.base_url, auth.get_auth_headers())
-    # response = api.findings_layout.list(auth.base_url, auth.get_auth_headers())
+    response = api._templates.findings_templateslayouts.list_findings_templates(auth.base_url, auth.get_auth_headers())
     if type(response) == list:
         findings_templates = list(filter(lambda x: x['data']['template_name'] == findings_template_name, response))
 
