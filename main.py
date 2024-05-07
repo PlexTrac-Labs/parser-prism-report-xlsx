@@ -74,9 +74,12 @@ def handle_add_report_template_name(report_template_name, parser: Parser):
     """
     report_templates = []
 
-    response = api._templates.report_templates.list_report_templates(auth.base_url, auth.get_auth_headers(), auth.tenant_id)
-    if type(response) == list:
-        report_templates = list(filter(lambda x: x['data']['template_name'] == report_template_name, response))
+    try:
+        response = api._templates.report_templates.list_report_templates(auth.base_url, auth.get_auth_headers(), auth.tenant_id)
+    except Exception as e:
+        log.exception(e)
+    if type(response.json) == list:
+        report_templates = list(filter(lambda x: x['data']['template_name'] == report_template_name, response.json))
 
     if len(report_templates) > 1:
         if not input.continue_anyways(f'report_template_name value \'{report_template_name}\' from config matches {len(report_templates)} Report Templates in platform. No Report Template will be added to reports.'):
@@ -100,9 +103,12 @@ def handle_add_findings_template_name(findings_template_name, parser: Parser):
     """
     findings_templates = []
 
-    response = api._templates.findings_templateslayouts.list_findings_templates(auth.base_url, auth.get_auth_headers())
-    if type(response) == list:
-        findings_templates = list(filter(lambda x: x['data']['template_name'] == findings_template_name, response))
+    try:
+        response = api._templates.findings_templateslayouts.list_findings_templates(auth.base_url, auth.get_auth_headers())
+    except Exception as e:
+        log.exception(e)
+    if type(response.json) == list:
+        findings_templates = list(filter(lambda x: x['data']['template_name'] == findings_template_name, response.json))
 
     if len(findings_templates) > 1:
         if not input.continue_anyways(f'findings_template_name value \'{findings_template_name}\' from config matches {len(findings_templates)} Finding Layouts in platform. No Findings Layout will be added to reports.'):
