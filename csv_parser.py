@@ -758,65 +758,6 @@ class CSVParser():
     #--- END Asset---
 
 
-    # information about different states the script can run into
-    log_messages = {
-        'NO_CLIENT_DESIGNATION': {
-            'name': "no_client_designation",
-            'type': "error - skipped",
-            'message': "findings were missing or had invalid data for the csv column regarding which client the finding belongs and were not added to Plextrac",
-            'num': 0
-        },
-        'NO_CLIENT_CREATED': {
-            'name': "no_client_created",
-            'type': "error - skipped",
-            'message': "findings had an issue when trying to create a Client, despite having valid data in the csv column regarding which client the findings belong, and were not added to Plextrac",
-            'num': 0
-        },
-        'NO_REPORT_DESIGNATION': {
-            'name': "no_report_designation",
-            'type': "error - skipped",
-            'message': "findings were missing or had invalid data for the csv column regarding which report the findings belong and were not added to Plextrac",
-            'num': 0
-        },
-        'NO_REPORT': {
-            'name': "no_report_created",
-            'type': "error - skipped",
-            'message': "findings had an issue when trying to create a Report, despite having valid data in the csv column regarding which report the findings belong, and were not added to Plextrac",
-            'num': 0
-        },
-        'NO_MATCHED_AFFECTED_ASSET': {
-            'name': "no_matched_affected_asset",
-            'type': "error - skipped",
-            'message': "findings had an issue when trying to add an affected asset, despite having valid data in the csv column regarding the affected asset name, and were not added to Plextrac",
-            'num': 0
-        },
-        'NO_UNMATCHED_RELATED_IT_ASSET': {
-            'name': "no_unmatched_affected_asset",
-            'type': "error - skipped",
-            'message': "finidngs were missing or had invalid data for the csv column regarding the affected asset name and all asset information was not added to Plextrac for these findings",
-            'num': 0
-        },
-        'NO_FINDING_CREATED': {
-            'name': "no_finding_created",
-            'type': "error - skipped",
-            'message': "findings had an issue creating a new finding, so were not added to Plextrac",
-            'num': 0
-        },
-        'NO_DATA_VALIDATION': {
-            'name': "no_data_validation",
-            'type': "exception - manual verification",
-            'message': "findings had 1 or more values that did not fit within csv formulas' verification rules, these values were skipped",
-            'num': 0
-        },
-        'SUCCESS': {
-            'name': "success",
-            'type': "info",
-            'message': "findings were parsed and imported successfully",
-            'num': 0
-        }
-    }
-
-
     def __init__(self):
         """
         
@@ -847,9 +788,6 @@ class CSVParser():
 
         self.client_template['name'] = f'client_name_{self.parser_date}'
         self.report_template['name'] = f'report_name_{self.parser_date}'
-
-        # csv logging
-        self.CSV_LOGS_FILE_PATH = f'parser_logs_{self.parser_time}.csv'
 
 
     #----------getters and setter----------
@@ -884,76 +822,8 @@ class CSVParser():
 
 
     #----------logging functions----------
-    # TODO CSV logging is no longer used, consider reimplementing or removing
-    def create_log_file(self):
-        """
-        Creates a CSv with unique file name and populates it with the data that will be parsed
-        and imported into Plextrac. As the script runs, it will append logs to each entry.
-
-        This allows the ability to to filter the log file and modify and retry parsing
-        for findings that were skipped or deemed not imported correctly.
-        """
-        log.info("Creating log file...")
-        try:
-            with open(self.CSV_LOGS_FILE_PATH, mode='w', encoding="utf8") as file:
-                writer = csv.writer(file)
-                header_row = self.get_csv_headers()
-                header_row.append("Parser Logs")
-                writer.writerow(header_row)
-
-                # adding findings to be parsed and imported - logs will be later added as needed to each entry
-                for row in self.csv_data:
-                    # fixes csv when given csv is not square shape (rows can be different lengths depending on empty cells in the last col)
-                    while len(row) < len(self.get_csv_headers())+1:
-                        row.append("")
-                    writer.writerow(row)
-
-                log.info(f'Logs will be saved to \'{self.CSV_LOGS_FILE_PATH}\'')
-        except Exception as e:
-            log.warning(f'Error setting up csv log file: {e}')
-
-
-    # TODO CSV logging is no longer used, consider reimplementing or removing
-    def add_log(self, log_message, e=None):
-        """
-        While the script is parsing and adding findings it can run into 2 conditions:
-        - A finding did not have the full expected data, but was added with data given (should verify the created finding is as expected)
-        - A finding did not have necessary data, script cannot continue
-
-        This function is called to add either type of message to a finding entry
-        """
-        i = self.parser_progess
-        try:
-            with open(self.CSV_LOGS_FILE_PATH, mode='r', encoding="utf8") as file:
-                reader = csv.reader(file)
-                temp_csv_data = []
-                for row in reader:
-                    temp_csv_data.append(row)
-
-                log_message['num'] += 1
-                new_log = f'{log_message["type"]}:  {log_message["name"]}'
-                if e != None:
-                    new_log = f'{new_log}\n{e}'
-                temp_csv_data[i+1][len(self.data_mapping)] = f'{temp_csv_data[i+1][len(self.data_mapping)]}\n{new_log}'
-
-            with open(self.CSV_LOGS_FILE_PATH, mode='w', encoding="utf8") as file:
-                writer = csv.writer(file)
-                writer.writerows(temp_csv_data)
-            
-        except Exception as e:
-            log.warning(f'Error updating csv log file: {e}')
-
-    
     def display_parser_results(self):
         log.success(f'CSV parsing completed!')
-        # TODO unused CSV logging results
-        # Successfully imported {self.log_messages["SUCCESS"]["num"]}/{len(self.csv_data)} findings.\n')
-        
-        # for log in self.log_messages.values():
-        #     if log['num'] > 0:
-
-        #         log.info(f'{log["num"]} {log["message"]}.')
-
         log.info(f'Detailed logs can be found in \'{log.LOGS_FILE_PATH}\'')
 
     def save_data_to_csv(self, file_path: str) -> None:
@@ -1438,7 +1308,6 @@ class CSVParser():
 
     # multiple tags
     def add_multi_tag(self, header, obj, mapping, value):
-        log.debug
         tags = value.split(",")
         for tag in tags:
             utils.add_tag(obj['tags'], tag)
@@ -1633,15 +1502,11 @@ class CSVParser():
         """
         Top level parsing controller. Loops through loaded csv, gathers required data, calls function to process data.
 
-        Creates and sets up csv logging file
         Determine where to look for finding name (needed to verify each row contains a finding)
         Loop through csv findings
         - Verfiy row contains finding
         - Call to process finding
         """
-        # TODO CSV logging is no longer used, consider reimplementing or removing
-        # self.create_log_file()
-
         # get index of 'name' obj in self.data_mapping - this will be the index to point us to the finding name column in the csv
         try:
             csv_finding_title_index = self.get_index_from_key("finding_title")
