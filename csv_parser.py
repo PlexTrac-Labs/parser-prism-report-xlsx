@@ -764,12 +764,12 @@ class CSVParser():
         """
         self.csv_headers_mapping: dict = deepcopy(self.csv_headers_mapping_template)
         self.csv_data: list = None
-        self.parser_progess: int = None
+        self.parser_progress: int = None
 
         self.severities = ["Critical", "High", "Medium", "Low", "Informational"]
 
         self.parser_time_seconds: float = time.time()
-        self.parser_time_milli_seconds: int = int(self.parser_time_seconds*1000)
+        self.parser_time_milliseconds: int = int(self.parser_time_seconds*1000)
         self.parser_date: str = time.strftime("%m/%d/%Y", time.localtime(self.parser_time_seconds))
         self.parser_time: str = time.strftime("%Y_%m_%d_%H_%M_%S", time.localtime(self.parser_time_seconds))
 
@@ -914,7 +914,7 @@ class CSVParser():
         Looks through list of clients already created during this running instance of the script
         Determines if a client exists that the current entry should be added to
 
-        Returns the client sid and name of exisitng client or
+        Returns the client sid and name of existing client or
         Creates new client and adds all csv column data that relates to the client
         """
         matching_clients = []
@@ -958,7 +958,7 @@ class CSVParser():
         Looks through list of reports already created during this running instance of the script for the given client
         Determines if a report exists that the current entry should be added to
 
-        Returns the report sid and name of exisitng report or
+        Returns the report sid and name of existing report or
         Creates new report and adds all csv column data that relates to the report
         """
         matching_reports = []
@@ -1047,7 +1047,7 @@ class CSVParser():
         Creates an asset for each asset name listed in the asset_multi_name column.
 
         Looks through list of assets already created during this running instance of the script for the given client
-        Determines if an asset has a duplicate, but will create a neww asset with the same name
+        Determines if an asset has a duplicate, but will create a new asset with the same name
 
         Does NOT add any other asset data keys besides the names.
         """
@@ -1090,7 +1090,7 @@ class CSVParser():
         Returns an asset sid and name based the csv columns specified that relate to asset data.
 
         Looks through list of assets already created during this running instance of the script for the given client
-        Determines if an asset has a duplicate, but will create a neww asset with the same name
+        Determines if an asset has a duplicate, but will create a new asset with the same name
 
         Creates new asset and adds all csv column data that relates to the asset
 
@@ -1472,7 +1472,7 @@ class CSVParser():
         if client_sid == None:
             return
 
-        # query csv row for report specific data and creaate or choose report
+        # query csv row for report specific data and create or choose report
         report_sid, report_name = self.handle_report(row, client_sid)   
         if report_sid == None:
             return     
@@ -1504,7 +1504,7 @@ class CSVParser():
 
         Determine where to look for finding name (needed to verify each row contains a finding)
         Loop through csv findings
-        - Verfiy row contains finding
+        - Verify row contains finding
         - Call to process finding
         """
         # get index of 'name' obj in self.data_mapping - this will be the index to point us to the finding name column in the csv
@@ -1517,21 +1517,21 @@ class CSVParser():
             return False
 
         log.info(f'---Beginning CSV parsing---')
-        self.parser_progess = 0
+        self.parser_progress = 0
         for row in self.csv_data:
-            log.info(f'=======Parsing Finding {self.parser_progess+1}=======')
+            log.info(f'=======Parsing Finding {self.parser_progress+1}=======')
 
             # checking if current row contains a finding since the csv could have rows that extend beyond finding data
             if row[csv_finding_title_index] == "":
-                log.warning(f'Row {self.parser_progess+2} in the CSV did not have a value for the finding_title. Skipping...')
-                self.parser_progess += 1
+                log.warning(f'Row {self.parser_progress+2} in the CSV did not have a value for the finding_title. Skipping...')
+                self.parser_progress += 1
                 continue
             
             vuln_name = row[csv_finding_title_index]
             log.info(f'---{vuln_name}---')
             self.parser_row(row)
 
-            self.parser_progess += 1
+            self.parser_progress += 1
             log.info(f'=======End {vuln_name}=======')
 
             # if self.parser_progess >= 150:
@@ -1569,7 +1569,7 @@ class CSVParser():
                 asset = self.assets[asset_sid]
                 if asset['original_asset_sid'] != None:
                     log.info(f'Found existing asset <{asset["asset"]}>')
-                    # purposly not making a copy we need to update original asset list fields with new entries
+                    # purposely not making a copy we need to update original asset list fields with new entries
                     og_asset = self.assets[asset['original_asset_sid']]
                     # update og asset - OS, known IPs, tags, and ports
                     self.update_asset_list_fields(og_asset, asset)
@@ -1584,7 +1584,7 @@ class CSVParser():
                     response = api.assets.update_asset(auth.base_url, auth.get_auth_headers(), client_id, og_asset['asset_id'], payload)
                     if response.json.get("message") != "success":
                         log.warning(f'Could not update asset in PT with additional data. Skipping')
-                    # update this duplicate asset to point to the same asset_id that as assgined by PT when the og asset was created
+                    # update this duplicate asset to point to the same asset_id that as assigned by PT when the og asset was created
                     asset['asset_id'] = og_asset.get('asset_id', None)
                     continue
 
@@ -1742,13 +1742,13 @@ class CSVParser():
                     finding_info['doc_version'] = self.doc_version
                     # dates
                     if finding_info.get("createdAt") == None:
-                        finding_info['createdAt'] = self.parser_time_milli_seconds
+                        finding_info['createdAt'] = self.parser_time_milliseconds
                     if finding_info['status'] == "Closed":
                         if finding_info.get("closedAt") == None:
-                            finding_info['closedAt'] = self.parser_time_milli_seconds
+                            finding_info['closedAt'] = self.parser_time_milliseconds
                     else:
                         finding_info['closedAt'] = None
-                    finding_info['last_update'] = self.parser_time_milli_seconds
+                    finding_info['last_update'] = self.parser_time_milliseconds
                     # sev
                     finding_info['sev'] = self.severities.index(finding_info['severity'])
                     # assignedTo
@@ -1790,7 +1790,7 @@ class CSVParser():
 
 
                             # log.info(f'Found existing asset <{asset["asset"]}>')
-                            # # purposly not making a copy we need to update original asset list fields with new entries
+                            # # purposely not making a copy we need to update original asset list fields with new entries
                             # og_asset = self.assets[asset['original_asset_sid']]
                             # # update og asset - OS, known IPs, tags, and ports
                             # utils.merge_sanitized_str_lists(og_asset['operating_system'], asset['operating_system'])
@@ -1810,7 +1810,7 @@ class CSVParser():
                             # response = api._v1.assets.update_asset(auth.base_url, auth.get_auth_headers(), client_id, og_asset['asset_id'], payload)
                             # if response.json.get("message") != "success":
                             #     log.warning(f'Could not update asset in PT with additional data. Skipping')
-                            # # update this duplicate asset to point to the same asset_id that as assgined by PT when the og asset was created
+                            # # update this duplicate asset to point to the same asset_id that as assigned by PT when the og asset was created
                             # asset['asset_id'] = og_asset.get('asset_id', None)
                             # continue
 

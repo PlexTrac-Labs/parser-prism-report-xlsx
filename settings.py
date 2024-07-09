@@ -10,7 +10,7 @@ save_logs_to_file = True
 # if the Plextrac instance is running on https without valid certs, requests will respond with cert error
 # change this to false to override verification of certs
 verify_ssl = True
-# number of times to rety a request before throwing an error. will only throw the last error encountered if
+# number of times to retry a request before throwing an error. will only throw the last error encountered if
 # number of retries is exceeded. set to 0 to disable retrying requests
 retries = 0
 
