@@ -15,11 +15,19 @@ import api
 
 # determines type of script execution
 # can either take in a dynamic header CSV file that determines data mapping outside script
-# otherwise can have static mapping defined in script
-predefined_csv_headers_mapping = False
+# otherwise can have static mapping defined in script, but only works for a single type of data file
+predefined_csv_headers_mapping = True
 
 
-def handle_load_api_version(api_version: str, parser: CSVParser) -> None:
+def handle_load_api_version(api_version:str, parser:CSVParser) -> None:
+    """
+    Handles prompting the user and setting the API version in the CSVParser. This is required for PTRAC generation.
+
+    :param api_version: version of Plextrac instance a generated PTRAC will be importing into
+    :type api_version: str
+    :param parser: instance of CSVParser
+    :type parser: CSVParser
+    """
     if api_version == "":
         api_version = input.prompt_user(f'The Api Version of the PT instance you want to import a .ptrac to is required for successful generation.\nEnter the API Version of your instance. This can be found at the bottom right of the Account Admin page in PT')
     if len(api_version.split(".")) == 3:
@@ -31,22 +39,74 @@ def handle_load_api_version(api_version: str, parser: CSVParser) -> None:
     
 
 def load_header_file(headers_file_path:str = "") -> LoadedCSVData:
+    """
+    Load CSV file containing header mapping to use in the script.
+    
+    Only called when `predefined_csv_headers_mapping` is False and the script will determine data mapping from additional CSV file
+    
+    TEMPLATE
+    When using this script as a base template, not required to change since headers will always be defined in a CSV
+
+    :param headers_file_path: filepath to file containing header mapping, defaults to ""
+    :type headers_file_path: str, optional - will prompt user if filepath is not supplied
+    :return: raw CSV data loaded from header file
+    :rtype: LoadedCSVData
+    """
     return input.load_csv_data("Enter file path to the CSV mapping headers to Plextrac data types", csv_file_path=headers_file_path)
 
 
-def verify_header_file(loaded_file_data: LoadedCSVData, csv_parser: CSVParser) -> bool:
-    # TEMPLATE - checks that the loaded file is valid for the script
+def verify_header_file(loaded_file_data:LoadedCSVData, csv_parser:CSVParser) -> bool:
+    """
+    Checks that the loaded header file is valid for the script
+
+    TEMPLATE
+    When using this script as a base template, can add custom validation to make sure the header file is valid
+
+    :param loaded_file_data: LoadedCSVData object of returned loaded data from `load_header_file()`
+    :type loaded_file_data: LoadedCSVData
+    :param csv_parser: instance of CSVParser - used in cases where there is some validation to be done checking
+    against pre-populated data in the `csv_headers_mapping_template` dict in the CSVParser
+    :type csv_parser: CSVParser
+    :return: whether the file is valid
+    :rtype: bool
+    """
+    # custom validation rules
     return True
 
 
 def load_data_file(data_file_path:str = "") -> LoadedCSVData:
-    # TEMPLATE - change based on script need and data file type
+    """
+    Loads the file containing data to be imported in the script
+
+    TEMPLATE
+    When using this script as a base template, need to rewrite this function based on the file of data needing to import
+
+    :param data_file_path: filepath to file containing data to import, defaults to ""
+    :type data_file_path: str, optional - will prompt user if filepath is not supplied
+    :return: raw data loaded from file
+    :rtype: LoadedCSVData if CSV, LoadedJSONData if Json, custom object if another filetype
+    """
+    # custom data file loading and return
     return input.load_csv_data("Enter file path to CSV data to import", csv_file_path=data_file_path)
 
 
-def verify_data_file(loaded_file_data: LoadedCSVData, csv_parser: CSVParser) -> bool:
-    # TEMPLATE - checks that the loaded file is valid for the script - correct report fields - has findings - correct finding fields
+def verify_data_file(loaded_file_data:LoadedCSVData, csv_parser:CSVParser) -> bool:
+    """
+    Checks that the loaded data file is valid for the script
     
+    TEMPLATE
+    When using this script as a base template, can add custom validation to make sure the data file is valid
+    - correct report fields
+    - correct finding fields
+    - file contains findings
+
+    :param loaded_file_data: object of returned loaded data from `load_data_file()`
+    :type loaded_file_data: LoadedCSVData if CSV, LoadedJSONData if Json, custom object if another filetype
+    :param csv_parser: instance of CSVParser - used to validate against data mapping loaded in the `csv_headers_mapping_template` dict in the CSVParser
+    :type csv_parser: CSVParser
+    :return: whether the file is valid
+    :rtype: bool
+    """    
     # has correct field/headers
     if loaded_file_data.headers != csv_parser.get_csv_headers():
         log.warning(f'CSV headers read from file\n{loaded_file_data.headers}')
@@ -61,25 +121,20 @@ def verify_data_file(loaded_file_data: LoadedCSVData, csv_parser: CSVParser) -> 
     return True
 
 
-# # duplicate of load data and verify data functions
-# def handle_load_csv_data_verify(path, parser: CSVParser):
-#     """
-#     takes a filepath to a csv, and a list of expected headers and returned the csv data if the headers match
-#     used as basic error checking that we have the correct csv
-#     """
-#     csv = input.load_csv_data("Enter file path to CSV data to import", csv_file_path=path)
+def load_parser_mappings_from_header_file(csv:LoadedCSVData, parser:CSVParser) -> None:
+    """
+    There are 2 cases of loading mapping data in CSVParser based on `predefined_csv_headers_mapping`
+    1) `csv_headers_mapping_template` dict in the CSVParser is empty
+    2) `csv_headers_mapping_template` dict in the CSVParser is pre-populated and only needs to have indexes matched
 
-#     if csv.headers != parser.get_csv_headers():
-#         log.warning(f'CSV headers read from file\n{csv.headers}')
-#         log.warning(f'Expected headers\n{parser.get_csv_headers()}')
-#         if input.retry(f'Loaded {csv.file_path} CSV headers don\'t match headers in Headers Mapping CSV.'):
-#             return handle_load_csv_data_verify("Enter file path to CSV data to import", "", parser.get_csv_headers())
+    Function for case 1:
+    Data mapping will be parsed from header CSV. For each mapping a new object will be created in `csv_headers_mapping_template`
 
-#     parser.csv_data = csv.data
-#     log.success(f'Loaded csv data')
-
-
-def load_parser_mappings_from_header_file(csv: LoadedCSVData, parser: CSVParser):
+    :param csv: 2 row CSV with headers on row 1 and mapping keys on row 2 - mapping keys can be found in 'Location Key List.ods'
+    :type csv: LoadedCSVData
+    :param parser: instance of CSVParser that data mapping will be loaded into
+    :type parser: CSVParser
+    """
     csv_headers_mapping = {}
 
     for index, header in enumerate(csv.headers):
@@ -109,10 +164,30 @@ def load_parser_mappings_from_header_file(csv: LoadedCSVData, parser: CSVParser)
                 exit()
 
     parser.csv_headers_mapping = csv_headers_mapping
-    log.success(f'Loaded csv headers mapping')
+    log.success(f'Loaded CSV headers mapping')
     
     
-def load_parser_mappings_from_data_file(csv: List[list], parser: CSVParser) -> bool:
+def load_parser_mappings_from_data_file(csv:List[list], parser:CSVParser) -> bool:
+    """
+    There are 2 cases of loading mapping data in CSVParser based on `predefined_csv_headers_mapping`
+    1) `csv_headers_mapping_template` dict in the CSVParser is empty
+    2) `csv_headers_mapping_template` dict in the CSVParser is pre-populated and only needs to have indexes matched
+
+    Function for case 2:
+    Data mapping will be parsed from a temp CSV file. This CSV file is generated in `create_temp_data_csv()` to emulate
+    the additional headers CSV file that could be used in the script
+    
+    For each mapping a pre-existing object in `csv_headers_mapping_template` will be updated. This method of not predefining
+    the `col_index` allows the mapping to be defined in the script, but the order of columns on the CSV can still be variable.
+
+    :param csv: array with 2 arrays - 2 row generated temp CSV with headers on row 1 and mapping keys on row 2
+    :type csv: List[list] - [List[headers], List[mapping_keys]]
+    :param parser: instance of CSVParser that data mapping will be loaded into
+    :type parser: CSVParser
+    :return: did the function update `predefined_csv_headers_mapping` objects - will still return True if some keys were invalid
+    :rtype: bool
+    """
+    # CUSTOM updating CSVParser > csv_headers_mapping dict based on custom generated temp CSV file
     # setup JSON finding keys/headers into CSVParser > csv_headers_mapping dict
     headers = csv[0]
 
@@ -120,50 +195,72 @@ def load_parser_mappings_from_data_file(csv: List[list], parser: CSVParser) -> b
         if index == 0: # handle the BOM char added to the beginning of the CSV IF it exists
             if "Title" in header and header != "Title":
                 header = header[1:]
-        key = parser.get_mapping_key_from_header(header)
-        if key in parser.get_data_mapping_ids():
+        mapping_key = parser.get_mapping_key_from_header(header)
+        if mapping_key in parser.get_data_mapping_ids():
             if parser.csv_headers_mapping[header].get("matched") == None: # if there are dup column headers, use the first col found and don't override when looking at the dup
                 parser.csv_headers_mapping[header]["col_index"] = index
                 parser.csv_headers_mapping[header]["matched"] = True
         else:
             log.error( f'Do not have mapping object created for header <{header}>. Check csv_parser.py > csv_headers_mapping_template to add. Marking as \'no_mapping\'')
+            parser.csv_headers_mapping[header]["mapping_key"] = "no_mapping"
 
     log.success(f'Loaded column headings from temp CSV')
     return True
 
 
-def create_temp_data_csv(loaded_file_data) -> List[list]:
-    # determine temp CSV headers - TODO add more than just finding headers
-    finding_keys = list(loaded_file_data['Vulnerabilities'][0].keys())
-    temp_csv = []
-    temp_csv.append(finding_keys)
-    
-    for vuln in loaded_file_data['Vulnerabilities']:
-        # seed finding with number of possible columns determined from number of keys
-        finding = []
-        for i in range(len(finding_keys)):
-            finding.append("")
-        # parse vuln fields from JSON of finding, and add to list
-        for key, value in vuln.items():
-            index = finding_keys.index(key) if key in finding_keys else None
-            if index != None:
-                if key == "References":
-                    new_value = ""
-                    for item in value:
-                        new_value = f'{new_value}\n{item}'
-                    new_value = new_value[1:]
-                    finding.insert(index, new_value)
-                    finding.pop(index+1)
-                elif key == "Cvss":
-                    new_value = value['Score']
-                    finding.insert(index, new_value)
-                    finding.pop(index+1)
-                else:
-                    finding.insert(index, value)
-                    finding.pop(index+1)
-        # add parsed list of finding fields to CSV
-        temp_csv.append(finding)
+def create_temp_data_csv(loaded_file_data:LoadedJSONData, parser:CSVParser) -> List[list]:
+    """
+    To be able to handle non CSV data files, this function converts the inputted data file into
+    a temp CSV that can be handled by CSVParser.
 
+    TEMPLATE
+    When using this script as a base template, can customize this function to create a CSV like
+    list from the data file the script needs to parse.
+
+    :param loaded_file_data: file that needs to be loaded into Plextrac
+    :type loaded_file_data: LoadedJSONData
+    :param parser: instance of CSVParser that data will be loaded into
+    :type parser: CSVParser
+    :return: temp generated CSV
+    :rtype: List[list]
+    """
+    temp_csv = []
+
+    # determine temp CSV headers - client, report, finding, and asset headers
+    headers = parser.get_csv_headers()
+    temp_csv.append(headers)
+
+    # get client info
+    client_name = ""
+
+    # get report info
+    report_name = ""
+    
+    # get finding info
+    for finding in loaded_file_data:
+        # seed row with number of possible columns determined from number of headers
+        row = []
+        for i in range(len(headers)):
+            row.append("")
+
+        # parse finding fields from data file
+        for label, value in finding:
+            index = headers.index(label) if label in headers else None
+            if index != None:    
+                row[index] = value
+
+        # add client and report info
+        client_name_index = headers.index("Client Name") if "Client Name" in headers else None
+        if client_name_index != None:
+            row[client_name_index] = client_name
+        report_name_index = headers.index("Report Name") if "Report Name" in headers else None
+        if report_name_index != None:
+            row[report_name_index] = report_name
+
+        # add parsed list of fields to CSV
+        temp_csv.append(row)
+
+    # DEBUG - save generated CSV to file
     # with open("temp_csv.csv",'w', newline="") as file:
     #     writer = csv.writer(file)
     #     writer.writerows(temp_csv)
@@ -171,13 +268,22 @@ def create_temp_data_csv(loaded_file_data) -> List[list]:
     return temp_csv
 
 
-def load_data_into_parser(csv: List[list], parser: CSVParser):
+def load_data_into_parser(csv:List[list], parser:CSVParser) -> None:
+    """
+    Loads CSV like data into the instance of the CSVParser that will parser and transform the data into a format that Plextrac can import.
+
+    CSV data file or temp generated CSV data file to import data from
+
+    :param csv: CSV like data to import data from
+    :type csv: List[list]
+    :param parser: instance of CSVParser to load data into
+    :type parser: CSVParser
+    """
     parser.csv_data = csv[1:]
-    log.success(f'Loaded data from temp CSV')
-    return True
+    log.success(f'Loaded data into parser instance')
 
 
-def handle_add_report_template_name(report_template_name, parser: CSVParser):
+def handle_add_report_template_name(report_template_name:str, parser:CSVParser) -> None:
     """
     Checks if the given the report_template_name value from the config.yaml file matches the name of an existing
     Report Template in Plextrac. If the template exists in platform, adds this report template UUID to the template
@@ -206,7 +312,7 @@ def handle_add_report_template_name(report_template_name, parser: CSVParser):
         exit()
 
 
-def handle_add_findings_template_name(findings_template_name, parser: CSVParser):
+def handle_add_findings_template_name(findings_template_name:str, parser:CSVParser) -> None:
     """
     Checks if the given the findings_template_name value from the config.yaml file matches the name of an existing
     Finding Layouts in Plextrac. If the layout exists in platform, adds this findings template UUID to the template
@@ -246,6 +352,18 @@ if __name__ == '__main__':
     auth = Auth(args)
     auth.handle_authentication()
 
+    # get header file_path
+    csv_headers_file_path = ""
+    if args.get('csv_headers_file_path') != None and args.get('csv_headers_file_path') != "":
+        csv_headers_file_path = args.get('csv_headers_file_path')
+        log.info(f'Using csv header file path \'{csv_headers_file_path}\' from config...')
+
+    # get data file path
+    csv_data_file_path = ""
+    if args.get('csv_data_file_path') != None and args.get('csv_data_file_path') != "":
+        csv_data_file_path = args.get('csv_data_file_path')
+        log.info(f'Using csv data file path \'{csv_data_file_path}\' from config...')
+
     # create parser instance
     parser = CSVParser()
     log.info(f'---Starting data loading---')
@@ -258,12 +376,6 @@ if __name__ == '__main__':
     # switch 1: header file
     if not predefined_csv_headers_mapping:
         log.info(f'Running script with additional CSV Headers file...')
-        
-        # get header file_path
-        csv_headers_file_path = ""
-        if args.get('csv_headers_file_path') != None and args.get('csv_headers_file_path') != "":
-            csv_headers_file_path = args.get('csv_headers_file_path')
-            log.info(f'Using csv header file path \'{csv_headers_file_path}\' from config...')
 
         # load header file
         loaded_file = load_header_file(csv_headers_file_path)
@@ -274,38 +386,36 @@ if __name__ == '__main__':
 
         # load headers into parser
         load_parser_mappings_from_header_file(loaded_file, parser)
-
-    # switch 2: no header file - mapping already in parser, just need to find columns
-
-        # get data file_path
-
-        # load file
-
-        # verify file
-
-        # create temp csv header file
-
-        # verify headers in file
-
-        # load temp headers file into parser
-    
-    # process data file
-
-        # get data file path
-    csv_data_file_path = ""
-    if args.get('csv_data_file_path') != None and args.get('csv_data_file_path') != "":
-        csv_data_file_path = args.get('csv_data_file_path')
-        log.info(f'Using csv data file path \'{csv_data_file_path}\' from config...')
     
         # load data file
-    loaded_file = load_data_file(csv_data_file_path)
+        loaded_file = load_data_file(csv_data_file_path)
 
         # verify data file
-    if not verify_data_file(loaded_file, parser):
-        exit()
+        if not verify_data_file(loaded_file, parser):
+            exit()
 
         # load data into parser instance
-    load_data_into_parser(loaded_file.csv, parser)
+        load_data_into_parser(loaded_file.csv, parser)
+
+    # switch 2: no header file - mapping already in parser, just need to find columns
+    if predefined_csv_headers_mapping:
+        log.info(f'Running script for specific file type (data mapping defined in script)...')
+
+        # load file
+        loaded_file = load_data_file(csv_data_file_path)
+
+        # verify file
+        if not verify_data_file(loaded_file, parser):
+            exit()
+
+        # create temp csv data file
+        temp_csv = create_temp_data_csv(loaded_file)
+
+        # load temp CSV file headers into parser
+        load_parser_mappings_from_data_file(temp_csv, parser)
+    
+        # load temp CSV file data into parser
+        load_data_into_parser(temp_csv, parser)
 
     # handle report templates
     report_template_name = ""
