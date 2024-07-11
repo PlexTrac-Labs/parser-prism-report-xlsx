@@ -16,7 +16,7 @@ import api
 # determines type of script execution
 # can either take in a dynamic header CSV file that determines data mapping outside script
 # otherwise can have static mapping defined in script, but only works for a single type of data file
-predefined_csv_headers_mapping = True
+predefined_csv_headers_mapping = False
 
 
 def handle_load_api_version(api_version:str, parser:CSVParser) -> None:
@@ -86,8 +86,10 @@ def load_data_file(data_file_path:str = "") -> LoadedCSVData:
     :return: raw data loaded from file
     :rtype: LoadedCSVData if CSV, LoadedJSONData if Json, custom object if another filetype
     """
-    # custom data file loading and return
     return input.load_csv_data("Enter file path to CSV data to import", csv_file_path=data_file_path)
+
+    # # custom data file loading and return example
+    # return input.load_json_data("Enter file path to custom scan JSON file to import", json_file_path=data_file_path)
 
 
 def verify_data_file(loaded_file_data:LoadedCSVData, csv_parser:CSVParser) -> bool:
@@ -192,16 +194,13 @@ def load_parser_mappings_from_data_file(csv:List[list], parser:CSVParser) -> boo
     headers = csv[0]
 
     for index, header in enumerate(headers):
-        if index == 0: # handle the BOM char added to the beginning of the CSV IF it exists
-            if "Title" in header and header != "Title":
-                header = header[1:]
         mapping_key = parser.get_mapping_key_from_header(header)
         if mapping_key in parser.get_data_mapping_ids():
             if parser.csv_headers_mapping[header].get("matched") == None: # if there are dup column headers, use the first col found and don't override when looking at the dup
                 parser.csv_headers_mapping[header]["col_index"] = index
                 parser.csv_headers_mapping[header]["matched"] = True
         else:
-            log.error( f'Do not have mapping object created for header <{header}>. Check csv_parser.py > csv_headers_mapping_template to add. Marking as \'no_mapping\'')
+            log.error(f'Invalid mapping key \'{mapping_key}\' for header \'{header}\'. Check csv_parser.py > csv_headers_mapping_template to correct or add. Marking as \'no_mapping\'')
             parser.csv_headers_mapping[header]["mapping_key"] = "no_mapping"
 
     log.success(f'Loaded column headings from temp CSV')
@@ -217,8 +216,8 @@ def create_temp_data_csv(loaded_file_data:LoadedJSONData, parser:CSVParser) -> L
     When using this script as a base template, can customize this function to create a CSV like
     list from the data file the script needs to parse.
 
-    :param loaded_file_data: file that needs to be loaded into Plextrac
-    :type loaded_file_data: LoadedJSONData
+    :param loaded_file_data: object of returned loaded data from `load_data_file()`
+    :type loaded_file_data: LoadedCSVData if CSV, LoadedJSONData if Json, custom object if another filetype
     :param parser: instance of CSVParser that data will be loaded into
     :type parser: CSVParser
     :return: temp generated CSV
@@ -409,7 +408,7 @@ if __name__ == '__main__':
             exit()
 
         # create temp csv data file
-        temp_csv = create_temp_data_csv(loaded_file)
+        temp_csv = create_temp_data_csv(loaded_file, parser)
 
         # load temp CSV file headers into parser
         load_parser_mappings_from_data_file(temp_csv, parser)
