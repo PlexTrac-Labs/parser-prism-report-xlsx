@@ -3,6 +3,7 @@ from typing import Union, List
 import yaml
 import json
 import os
+import time
 
 import openpyxl
 
@@ -13,6 +14,7 @@ from utils.auth_handler import Auth
 from csv_parser import CSVParser
 import utils.input_utils as input
 from utils.input_utils import LoadedCSVData, LoadedJSONData
+import utils.general_utils as utils
 import api
 
 
@@ -41,7 +43,7 @@ def handle_load_api_version(api_version:str, parser:CSVParser) -> None:
             return handle_load_api_version("", parser)
 
 
-def load_data_file(data_file_path:str = "") -> LoadedCSVData:
+def load_data_file(data_file_path:str = "") -> LoadedCSVData|None:
     """
     Loads the file containing data to be imported in the script
 
@@ -49,15 +51,16 @@ def load_data_file(data_file_path:str = "") -> LoadedCSVData:
 
     :param data_file_path: filepath to file containing data to import, defaults to ""
     :type data_file_path: str, optional - will prompt user if filepath is not supplied
-    :return: raw data loaded from file
-    :rtype: LoadedCSVData
+    :return: raw data loaded from file OR None value if the file could not be loaded
+    :rtype: LoadedCSVData | None
     """
     if data_file_path == "":
-        data_file_path = input.prompt_user("Enter file path to Prism report XLSX file" + " (relative file path, including file extension)")
+        log.exception(f'No file path specified. Skipping...')
+        return None
 
     if not os.path.exists(data_file_path):
-        if input.retry(f'Specified file \'{data_file_path}\' does not exist.'):
-            return load_data_file()
+        log.exception(f'Specified file \'{data_file_path}\' does not exist. Skipping...')
+        return None
 
     try:
         workbook = openpyxl.load_workbook(data_file_path, data_only=True)
@@ -73,8 +76,8 @@ def load_data_file(data_file_path:str = "") -> LoadedCSVData:
         return LoadedCSVData(file_path=data_file_path, csv=data, headers=csv_headers, data=csv_data)
 
     except Exception as e:
-        if input.retry(f'Error loading file: {e}'):
-            return load_data_file()    
+        log.exception(f'Error loading file. Skipping...\n{e}')
+        return None 
 
 
 def verify_data_file(loaded_file_data:LoadedCSVData, csv_parser:CSVParser) -> bool:
@@ -290,72 +293,125 @@ if __name__ == '__main__':
     with open("config.yaml", 'r') as f:
         args = yaml.safe_load(f)
 
+    export_folder_path = "exported-ptracs"
+    try:
+        os.mkdir(export_folder_path)
+    except FileExistsError as e:
+        log.debug(f'Could not create directory {export_folder_path}, already exists')
+
     auth = Auth(args)
     auth.handle_authentication()
 
-    # get header file_path
-    csv_headers_file_path = ""
-    if args.get('csv_headers_file_path') != None and args.get('csv_headers_file_path') != "":
-        csv_headers_file_path = args.get('csv_headers_file_path')
-        log.info(f'Using csv header file path \'{csv_headers_file_path}\' from config...')
-
     # get data file path
-    csv_data_file_path = ""
-    if args.get('csv_data_file_path') != None and args.get('csv_data_file_path') != "":
-        csv_data_file_path = args.get('csv_data_file_path')
-        log.info(f'Using csv data file path \'{csv_data_file_path}\' from config...')
+    prism_xlsx_file_path = ""
+    if args.get('prism_xlsx_file_path') != None and args.get('prism_xlsx_file_path') != "":
+        prism_xlsx_file_path = args.get('prism_xlsx_file_path')
+        log.info(f'Using csv data file path \'{prism_xlsx_file_path}\' from config...')
 
-    # create parser instance
-    parser = CSVParser()
-    log.info(f'---Starting data loading---')
-    api_version = ""
-    if args.get('api_version') != None and args.get('api_version') != "":
-        api_version = str(args.get('api_version'))
-        log.info(f'Set API Version to \'{api_version}\' from config...')
-    handle_load_api_version(api_version, parser)
+    #get data folder path
+    prism_xlsx_folder_path = ""
+    if args.get('prism_xlsx_folder_path') != None and args.get('prism_xlsx_folder_path') != "":
+        prism_xlsx_folder_path = args.get('prism_xlsx_folder_path')
+        log.info(f'Using csv data file path \'{prism_xlsx_folder_path}\' from config...')
 
-    # switch 2: no header file - mapping already in parser, just need to find columns
-    if predefined_csv_headers_mapping:
-        log.info(f'Running script for Prism Report XlSX file export (data mapping defined in script)...')
+    file_list = []
 
-        # load file
-        loaded_file = load_data_file(csv_data_file_path)
+    # add all files in folder path to array of files to process
+    if prism_xlsx_folder_path != "":
+        if os.path.exists(prism_xlsx_folder_path) and os.path.isdir(prism_xlsx_folder_path):
+            files = os.listdir(prism_xlsx_folder_path)
+            file_list = [(prism_xlsx_folder_path, file) for file in files if os.path.isfile(os.path.join(prism_xlsx_folder_path, file))]
+            if len(file_list) < 0:
+                log.exception(f'Could not find any files in \'{prism_xlsx_folder_path}\'')
+        else:
+            log.exception(f'Could not find directory \'{prism_xlsx_folder_path}\'')
 
-        # verify file
-        if not verify_data_file(loaded_file, parser):
-            exit()
+    # add file path in config to array of files to process
+    if prism_xlsx_file_path != "":
+        file_list.append(("", prism_xlsx_file_path))
 
-        # create temp csv data file
-        temp_csv = create_temp_data_csv(loaded_file, parser)
+    # no values were added from config, prompt user for data file path
+    if len(file_list) < 1:
+        data_file_path = input.prompt_user("Enter file path to Prism report XLSX file" + " (relative file path, including file extension)")
+        directory, file_name = os.path.split(data_file_path)
+        file_list.append((directory, file_name))
 
-        # load temp CSV file headers into parser
-        load_parser_mappings_from_data_file(temp_csv, parser)
+    log.success(f'Found {len(file_list)} file(s) to process')
     
-        # load temp CSV file data into parser
-        load_data_into_parser(temp_csv, parser)
 
-    # handle report templates
-    report_template_name = ""
-    if args.get('report_template_name') != None and args.get('report_template_name') != "":
-        report_template_name = args.get('report_template_name')
-        log.info(f'Using report template \'{report_template_name}\' from config...')
-        handle_add_report_template_name(report_template_name, parser)
+    failed_files = []
+    for folder_path, file_name in file_list:
+        log.info(f'Processing file \'{file_name}\'...')
 
-    # handle finding layouts
-    findings_layout_name = ""
-    if args.get('findings_layout_name') != None and args.get('findings_layout_name') != "":
-        findings_layout_name = args.get('findings_layout_name')
-        log.info(f'Using findings layout \'{findings_layout_name}\' from config...')
-        handle_add_findings_template_name(findings_layout_name, parser)
+        # create parser instance
+        parser = CSVParser()
+        log.info(f'---Starting data loading---')
+        api_version = ""
+        if args.get('api_version') != None and args.get('api_version') != "":
+            api_version = str(args.get('api_version'))
+            log.info(f'Set API Version to \'{api_version}\' from config...')
+        handle_load_api_version(api_version, parser)
 
-    # parser data
-    if not parser.parse_data():
-        exit()
+        # switch 2: no header file - mapping already in parser, just need to find columns
+        if predefined_csv_headers_mapping:
 
-    # print result
-    parser.display_parser_results()
+            # load file
+            file_path = f'{folder_path}/{file_name}' if folder_path != "" else file_name
+            loaded_file = load_data_file(file_path)
+            if loaded_file == None:
+                failed_files.append(file_name)
+                continue
 
-    # save file
-    if input.continue_anyways(f'IMPORTANT: Data will be saved to Ptrac(s).\nYou can save each parsed report as a Ptrac. You cannot import client data from a Ptrac.\nWould you like to create and save a Ptrac for {len(parser.reports)} report(s).'):
-        parser.save_data_as_ptrac()
-        log.info(f'Ptrac(s) creation complete. File(s) can be found in \'exported-ptracs\' folder. Additional logs were added to {log.LOGS_FILE_PATH}')
+            # verify file
+            if not verify_data_file(loaded_file, parser):
+                failed_files.append(file_name)
+                log.exception(f'Could not verify file \'{file_name}\'. Skipping')
+                continue
+
+            # create temp csv data file
+            temp_csv = create_temp_data_csv(loaded_file, parser)
+
+            # load temp CSV file headers into parser
+            load_parser_mappings_from_data_file(temp_csv, parser)
+
+            # load temp CSV file data into parser
+            load_data_into_parser(temp_csv, parser)
+
+        # handle report templates
+        report_template_name = ""
+        if args.get('report_template_name') != None and args.get('report_template_name') != "":
+            report_template_name = args.get('report_template_name')
+            log.info(f'Using report template \'{report_template_name}\' from config...')
+            handle_add_report_template_name(report_template_name, parser)
+
+        # handle finding layouts
+        findings_layout_name = ""
+        if args.get('findings_layout_name') != None and args.get('findings_layout_name') != "":
+            findings_layout_name = args.get('findings_layout_name')
+            log.info(f'Using findings layout \'{findings_layout_name}\' from config...')
+            handle_add_findings_template_name(findings_layout_name, parser)
+
+        # parser data
+        if not parser.parse_data():
+            log.exception(f'Ran into error and cannot parse data. Skipping...')
+            failed_files.append(file_name)
+            continue
+
+        # print result
+        parser.display_parser_results()
+
+        # save file
+        # check to make sure we don't override existing files in the exported-ptracs directory
+        existing_files = [os.path.splitext(file)[0] for file in os.listdir(export_folder_path)]
+        export_file_name = utils.increment_file_name(file_name, existing_files)
+        parser.save_data_as_ptrac(folder_path=export_folder_path, file_name=export_file_name)
+        time.sleep(1) # required to have a minimum 1 sec delay since unique file names COULD be determined by timestamp
+
+    
+    # end of script messaging
+    log.success(f'\n\nProcessed and created PTRAC files for {len(file_list)-len(failed_files)}/{len(file_list)} files in \'{prism_xlsx_folder_path}\'. New PTRAC file(s) can be found in \'exported-ptracs\' folder.')
+    if len(failed_files) > 0:
+        failed_files_str = "\n".join(failed_files)
+        log.exception(f'Could not successfully process all files in the directory \'{prism_xlsx_folder_path}\'. Failed files:\n{failed_files_str}')
+    if settings.save_logs_to_file:
+        log.info(f'Additional logs were added to {log.LOGS_FILE_PATH}')

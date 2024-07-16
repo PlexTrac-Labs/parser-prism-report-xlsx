@@ -1840,7 +1840,7 @@ class CSVParser():
                             continue
                         log.success(f'Successfully added asset(s) info to finding!')
 
-    def save_data_as_ptrac(self, file_name=None):
+    def save_data_as_ptrac(self, folder_path="exported-ptracs", file_name=None):
         """
         Creates and adds all relevant data to generate a ptrac file for each report found while parsing
         """
@@ -1861,7 +1861,6 @@ class CSVParser():
             }
         }
 
-        folder_path = "exported-ptracs"
         try:
             os.mkdir(folder_path)
         except FileExistsError as e:
@@ -2037,7 +2036,7 @@ class CSVParser():
                 # save report as ptrac
                 if file_name == None:
                     file_name = f'{utils.sanitize_file_name(client["name"])}_{utils.sanitize_file_name(report["name"])}_{self.parser_time}.ptrac'
-                file_path = f'{folder_path}/{file_name}'
+                file_path = f'{folder_path}/{file_name}.ptrac'
                 with open(f'{file_path}', 'w') as file:
                     json.dump(ptrac, file)
                     log.success(f'Saved new PTRAC \'{file_name}\'')

@@ -7,6 +7,7 @@ password:
 api_version: 
 
 prism_xlsx_file_path: 
+prism_xlsx_folder_path: 
 
 # name of a report template in the Plextrac instance will be added to all reports
 report_template_name: 

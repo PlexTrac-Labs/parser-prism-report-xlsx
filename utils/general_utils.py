@@ -3,6 +3,7 @@ import time
 from hashlib import sha256
 from typing import List
 from copy import copy, deepcopy
+import os
 
 import utils.log_handler as logger
 log = logger.log
@@ -217,3 +218,15 @@ def generate_flaw_id(title: str) -> int:
     """
     return int(sha256(title.encode('utf-8')).hexdigest(), 16) % 10 ** 8
     
+
+def increment_file_name(file_name, existing_files):
+    """
+    return the file name without extension
+    """
+    base_name, extension = os.path.splitext(file_name)
+    if base_name in existing_files:
+        count = 1
+        while f"{base_name} ({count})" in existing_files:
+            count += 1
+        return f"{base_name} ({count})"
+    return base_name
