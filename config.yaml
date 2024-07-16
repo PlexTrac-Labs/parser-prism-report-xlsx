@@ -3,10 +3,10 @@ instance_url:
 username: 
 password: 
 
+# example 2.6.0
 api_version: 
 
-csv_headers_file_path: header_mapping.csv
-csv_data_file_path: 
+prism_xlsx_file_path: 
 
 # name of a report template in the Plextrac instance will be added to all reports
 report_template_name: 

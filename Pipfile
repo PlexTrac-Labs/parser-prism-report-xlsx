@@ -9,6 +9,7 @@ verify_ssl = true
 requests = "*"
 pyyaml = "*"
 python-dateutil = "*"
+openpyxl = "*"
 
 [requires]
 python_version = "3"

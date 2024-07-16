@@ -28,7 +28,157 @@ class CSVParser():
 
     # otherwise should be None when the script will be supplied with a header file
     csv_headers_mapping_template = {
-
+        "Project Number:": {
+            "header": "Project Number:",
+            "mapping_key": "report_custom_field",
+            "col_index": None
+        },
+        "Project Status:": {
+            "header": "Project Status:",
+            "mapping_key": "report_custom_field",
+            "col_index": None
+        },
+        "Start Date:": {
+            "header": "Start Date:",
+            "mapping_key": "report_start_date",
+            "col_index": None
+        },
+        "End Date:": {
+            "header": "End Date:",
+            "mapping_key": "report_end_date",
+            "col_index": None
+        },
+        "Lead Tester:": {
+            "header": "Lead Tester:",
+            "mapping_key": "report_custom_field",
+            "col_index": None
+        },
+        "Phase Status:": {
+            "header": "Phase Status:",
+            "mapping_key": "report_custom_field",
+            "col_index": None
+        },
+        "#": {
+            "header": "#",
+            "mapping_key": "no_mapping",
+            "col_index": None
+        },
+        "Company Name": {
+            "header": "Company Name",
+            "mapping_key": "client_name",
+            "col_index": None
+        },
+        "Project Name": {
+            "header": "Project Name",
+            "mapping_key": "report_custom_field",
+            "col_index": None
+        },
+        "Phase Name": {
+            "header": "Phase Name",
+            "mapping_key": "report_name",
+            "col_index": None
+        },
+        "Status": {
+            "header": "Status",
+            "mapping_key": "finding_status",
+            "col_index": None
+        },
+        "Exploitable": {
+            "header": "Exploitable",
+            "mapping_key": "finding_custom_field",
+            "col_index": None
+        },
+        "Severity Rating": {
+            "header": "Severity Rating",
+            "mapping_key": "finding_severity",
+            "col_index": None
+        },
+        "Affected Instances": {
+            "header": "Affected Instances",
+            "mapping_key": "asset_multi_name",
+            "col_index": None
+        },
+        "Affected Instances Count": {
+            "header": "Affected Instances Count",
+            "mapping_key": "no_mapping",
+            "col_index": None
+        },
+        "Vulnerability": {
+            "header": "Vulnerability",
+            "mapping_key": "finding_title",
+            "col_index": None
+        },
+        "Confirmed At": {
+            "header": "Confirmed At",
+            "mapping_key": "finding_custom_field",
+            "col_index": None
+        },
+        "Summary": {
+            "header": "Summary",
+            "mapping_key": "finding_description",
+            "col_index": None
+        },
+        "Technical Details": {
+            "header": "Technical Details",
+            "mapping_key": "finding_references",
+            "col_index": None
+        },
+        "Recommendation": {
+            "header": "Recommendation",
+            "mapping_key": "finding_recommendations",
+            "col_index": None
+        },
+        "Assigned User": {
+            "header": "Assigned User",
+            "mapping_key": "no_mapping",
+            "col_index": None
+        },
+        "Last Comment": {
+            "header": "Last Comment",
+            "mapping_key": "finding_custom_field",
+            "col_index": None
+        },
+        # TODO double check this spelling is correct from all Prism exports, not based on user language preferences
+        "Favourite Comments": {
+            "header": "Favourite Comments",
+            "mapping_key": "finding_custom_field",
+            "col_index": None
+        },
+        "Issue Age": {
+            "header": "Issue Age",
+            "mapping_key": "no_mapping",
+            "col_index": None
+        },
+        "Tags": {
+            "header": "Tags",
+            "mapping_key": "finding_multi_tag",
+            "col_index": None
+        },
+        "Remediated At": {
+            "header": "Remediated At",
+            "mapping_key": "finding_closed_at",
+            "col_index": None
+        },
+        "CVEs": {
+            "header": "CVEs",
+            "mapping_key": "finding_cve",
+            "col_index": None
+        },
+        "CVSS Vector": {
+            "header": "CVSS Vector",
+            "mapping_key": "finding_cvss3_1_vector",
+            "col_index": None
+        },
+        "CVSS SCORE": {
+            "header": "CVSS SCORE",
+            "mapping_key": "finding_cvss3_1_overall",
+            "col_index": None
+        },
+        "First Seen": {
+            "header": "First Seen",
+            "mapping_key": "finding_created_at",
+            "col_index": None
+        }
     }
     
     # list of locations to store data in Plextrac and how to access that location
@@ -143,7 +293,7 @@ class CSVParser():
             'id': 'report_custom_field',
             'object_type': 'REPORT',
             'data_type' : 'CUSTOM_FIELD',
-            'validation_type': None,
+            'validation_type': "STR",
             'input_blanks': True,
             'path': ['custom_field', 'INDEX']
         },
@@ -1171,6 +1321,115 @@ class CSVParser():
 
 
     #----------functions to add specific types of data to certain locations----------
+    def validate_value(self, header, mapping, value):
+        """
+        Invalid values will return an empty string or None
+        
+        If there is a chance that some might have mapping might have `input_blanks` set to True it should return "" rather than None
+        """
+        if mapping['validation_type'] == None:
+            return value
+
+        if mapping['validation_type'] == "DATE_ZULU":
+            value = str(value)
+            try:
+                raw_date = utils.try_parsing_date(value)
+            except ValueError:
+                log.exception(f"Non-valid date format for '{header}': '{value}'. Ignoring...")
+                return ""
+            except Exception:
+                log.exception(f"Could not parse date value for '{header}': '{value}'. Ignoring...")
+                return ""
+            return time.strftime("%Y-%m-%dT08:00:00.000000Z", raw_date)
+
+        if mapping['validation_type'] == "DATE_EPOCH":
+            value = str(value)
+            try:
+                raw_date = utils.try_parsing_date(value)
+            except ValueError:
+                log.exception(f"Non-valid date format for '{header}': '{value}'. Ignoring...")
+                return ""
+            except Exception:
+                log.exception(f"Could not parse date value for '{header}': '{value}'. Ignoring...")
+                return ""
+            return int(time.mktime(raw_date)*1000)
+
+        if mapping['validation_type'] == "SEVERITY":
+            # ["Critical", "High", "Medium", "Low", "Informational"]
+            if value not in self.severities:
+                log.warning(f'Header "{header}" value "{value}" is not a valid severity. Must be in the list ["Critical", "High", "Medium", "Low", "Informational"] Skipping...')
+                return None
+            return value
+
+        if mapping['validation_type'] == "STATUS":
+            statuses = ["Open", "In Process", "Closed"]
+            if value not in statuses:
+                log.warning(f'Header "{header}" value "{value}" is not a valid status. Must be in the list ["Open", "In Process", "Closed"] Skipping...')
+                return None
+            return value
+
+        if mapping['validation_type'] == "ASSET_TYPE":
+            types = ["Workstation", "Server", "Network Device", "Application", "General"]
+            if value not in types:
+                log.warning(f'Header "{header}" value "{value}" is not a valid asset type. Must be in the list ["Workstation", "Server", "Network Device", "Application", "General"] Skipping...')
+                return None
+            return value
+
+        if mapping['validation_type'] == "PCI_STATUS":
+            pass_types = ["Pass", "pass", "Yes", "yes", "y"]
+            fail_types = ["Fail", "fail", "No", "no", "n"]
+            if value in pass_types:
+                value = "pass"
+            elif value in fail_types:
+                value = "fail"
+            else:
+                log.warning(f'Header "{header}" value "{value}" is not a valid asset type. Must be in the list ["Pass", "pass", "Yes", "yes", "y"] or ["Fail", "fail", "No", "no", "n"] Skipping...')
+                return None
+            return value
+
+        if mapping['validation_type'] == "CVSS_VECTOR":
+            if value.startswith('CVSS:3.1/'):
+                value = value[9:]
+            if not utils.is_valid_cvss3_1_vector(value):
+                log.warning(f'Header "{header}" value "{value}" is not a valid CVSSSv3.1 vector. Must be of the pattern \'AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L\' or \'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L\' Skipping...')
+                return None
+            return value
+
+        if mapping['validation_type'] == "POS_INT_AS_STR":
+            if not utils.is_str_positive_integer(value):
+                log.warning(f'Header "{header}" value "{value}" is not a valid number. Must be a positive integer. Skipping...')
+                return None
+            return value
+
+        if mapping['validation_type'] == "FLOAT":
+            try:
+                return float(value)
+            except ValueError:
+                log.exception(f'Header "{header}" value "{value}" is not a valid number. Skipping...')
+                return None
+
+        if mapping['validation_type'] == "BOOL":
+            try:
+                return bool(value)
+            except ValueError:
+                log.exception(f'Header "{header}" value "{value}" cannot be converted to a boolean. Skipping...')
+                return None
+
+        if mapping['validation_type'] == "INT":
+            try:
+                return int(value)
+            except ValueError:
+                log.exception(f'Header "{header}" value "{value}" cannot be converted to an integer. Skipping...')
+                return None
+        
+        if mapping['validation_type'] == "STR":
+            try:
+                return str(value)
+            except ValueError:
+                log.exception(f'Header "{header}" value "{value}" cannot be converted to a string. Skipping...')
+                return None
+
+    # base function that takes path and sets value
     def set_value(self, obj, path, value):
         if len(path) == 1:
             if path[0] == "INDEX":
@@ -1190,94 +1449,7 @@ class CSVParser():
     # detail
     def add_detail(self, header, obj, mapping, value):
         path = mapping['path']
-
-        if mapping['validation_type'] == "DATE_ZULU":
-            try:
-                raw_date = utils.try_parsing_date(value)
-            except ValueError:
-                log.exception(f"Non-valid date format for '{header}': '{value}'. Ignoring...")
-                return
-            except Exception:
-                log.exception(f"Could not parse date value for '{header}': '{value}'. Ignoring...")
-                return
-            self.set_value(obj, path, time.strftime("%Y-%m-%dT08:00:00.000000Z", raw_date))
-            return
-
-        if mapping['validation_type'] == "DATE_EPOCH":
-            try:
-                raw_date = utils.try_parsing_date(value)
-            except ValueError:
-                log.exception(f"Non-valid date format for '{header}': '{value}'. Ignoring...")
-                return
-            except Exception:
-                log.exception(f"Could not parse date value for '{header}': '{value}'. Ignoring...")
-                return
-            self.set_value(obj, path, int(time.mktime(raw_date)*1000))
-            return
-
-        if mapping['validation_type'] == "SEVERITY":
-            # ["Critical", "High", "Medium", "Low", "Informational"]
-            if value not in self.severities:
-                log.warning(f'Header "{header}" value "{value}" is not a valid severity. Must be in the list ["Critical", "High", "Medium", "Low", "Informational"] Skipping...')
-                return
-
-        if mapping['validation_type'] == "STATUS":
-            statuses = ["Open", "In Process", "Closed"]
-            if value not in statuses:
-                log.warning(f'Header "{header}" value "{value}" is not a valid status. Must be in the list ["Open", "In Process", "Closed"] Skipping...')
-                return
-
-        if mapping['validation_type'] == "ASSET_TYPE":
-            types = ["Workstation", "Server", "Network Device", "Application", "General"]
-            if value not in types:
-                log.warning(f'Header "{header}" value "{value}" is not a valid asset type. Must be in the list ["Workstation", "Server", "Network Device", "Application", "General"] Skipping...')
-                return
-
-        if mapping['validation_type'] == "PCI_STATUS":
-            pass_types = ["Pass", "pass", "Yes", "yes", "y"]
-            fail_types = ["Fail", "fail", "No", "no", "n"]
-            if value in pass_types:
-                value = "pass"
-            elif value in fail_types:
-                value = "fail"
-            else:
-                log.warning(f'Header "{header}" value "{value}" is not a valid asset type. Must be in the list ["Pass", "pass", "Yes", "yes", "y"] or ["Fail", "fail", "No", "no", "n"] Skipping...')
-                return
-
-        if mapping['validation_type'] == "CVSS_VECTOR":
-            if value.startswith('CVSS:3.1/'):
-                value = value[9:]
-            if not utils.is_valid_cvss3_1_vector(value):
-                log.warning(f'Header "{header}" value "{value}" is not a valid CVSSSv3.1 vector. Must be of the pattern \'AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L\' or \'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L\' Skipping...')
-                return
-
-        if mapping['validation_type'] == "POS_INT_AS_STR":
-            if not utils.is_str_positive_integer(value):
-                log.warning(f'Header "{header}" value "{value}" is not a valid number. Must be a positive integer. Skipping...')
-                return
-
-        if mapping['validation_type'] == "FLOAT":
-            try:
-                self.set_value(obj, path, float(value))
-            except ValueError:
-                log.exception(f'Header "{header}" value "{value}" is not a valid number. Skipping...')
-            return
-
-        if mapping['validation_type'] == "BOOL":
-            try:
-                self.set_value(obj, path, bool(value))
-            except ValueError:
-                log.exception(f'Header "{header}" value "{value}" cannot be converted to a boolean. Skipping...')
-            return
-
-        if mapping['validation_type'] == "INT":
-            try:
-                self.set_value(obj, path, int(value))
-            except ValueError:
-                log.exception(f'Header "{header}" value "{value}" cannot be converted to an integer. Skipping...')
-            return
-        
-        self.set_value(obj, path, str(value))
+        self.set_value(obj, path, value)
 
     # client/report custom field
     def add_label_value(self, header, obj, mapping, value):
@@ -1431,10 +1603,10 @@ class CSVParser():
                 continue
 
             data_type = data_mapping['data_type']
-            value = row[index]
+            value = self.validate_value(header, data_mapping, row[index])
 
             # determine whether to add blank values
-            if data_mapping['input_blanks'] or value != "":
+            if data_mapping['input_blanks'] or (value != "" and value != None): 
 
                 if data_type == "DETAIL":
                     self.add_detail(header, obj, data_mapping, value)
