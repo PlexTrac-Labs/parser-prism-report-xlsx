@@ -1,3 +1,15 @@
+# prism-report-xlsx-import
+This script is meant to help move data from Rootshell's Prism application. In Prism, data is broken down into Companies, Projects, and Phases. This is similar to Plextrac's Clients and Reports. This similarity makes the simpler, but note that this script will turn each phase from Prism into an individual report in Plextrac.
+
+The file input for this script comes from the report XLSX export in Prism. Within a specific Project you can click export results and select Excel. This creates the XLSX file that can be parsed by this script. This does mean you will have to download each Project you want to add into Plextrac individually.
+
+Once the file is downloaded from Prism this script can parse it into the data structure that Plextrac can handle importing. This script will only convert Prism's XLSX file into a PTRAC file that Plextrac can import.
+
+This script can be used with 2 purposes in mind. Moving a single report, or migrating all report data from Prism to Plextrac. The script supports the input of a single XLSX file or a folder path to a directory containing multiple XLSX files from Prism. If you only need to move a single report, the generated PTRAC can be imported directly into the client you want to move the report to in th ePlextrac platform. If you are doing a bulk migration of data you can use our [instance-data-backup-migration](https://github.com/PlexTrac-Labs/instance-data-backup-migration) script to bulk import all the generated PTRACs into Plextrac at once. In the instance-data-backup-migration script you will use the Reports workflow and bulk select all the PTRACs to import.
+
+
+This script will only create new data and won't try to merge the data it parses from the XLSX file into existing reports in Plextrac. It will only look for existing clients in Plextrac with the same name as the Company Name parsed from Prism. If a report is found to have the same Company Name as an existing client in PLextrac the report will get imported under that client. Otherwise a new client will be create and the report imported under this new client.
+
 # Requirements
 - [Python 3+](https://www.python.org/downloads/)
 - [pip](https://pip.pypa.io/en/stable/installation/)
@@ -16,17 +28,6 @@ After setting up the Python environment, you will need to setup a few things bef
 
 ## CSV with Data to Import
 In the `config.yaml` file you should add the file path to the CSV with data you're trying to import.
-
-## Header Mapping CSV
-To import a CSV with data, you must create a mapping to tell the script where the data for each column should go in Plextrac.
-1. Make a copy of the csv file with the data you want to import.
-2. Rename the copy to `header_mapping.csv`. If you choose a different file name you will need to update the `csv_headers_file_path` value in the `config.yaml` file.
-3. Open the `header_mapping.csv` and delete all rows except the header row.
-4. In the second row, for each column you want to import, add a location key. 
-
-See [Location Key List.ods](https://github.com/pgreen-ptrac/general-csv-import/files/10413417/Location.Key.List.ods) for list of available keys and descriptions.
-
-5. Move this file to the main directory where you cloned this repo. If you place it in a different directory you will need to update the `csv_headers_file_path` value in the `config.yaml` file.
 
 ## Credentials
 In the `config.yaml` file you should add the full URL to your instance of Plextrac.
@@ -54,25 +55,23 @@ The following values can either be added to the `config.yaml` file or entered wh
 - Username
 - Password
 - MFA Token (if enabled)
-- File path to CSV containing data to import
-- File path to CSV containing header mappings to Plextrac location keys
 - API version
+- File path to Prism XLSX containing data to import
+    OR
+- Folder path to directory containing multiple Prism XLSX files
 
 ## Script Execution Flow
 When the script starts it will load in config values and try to:
 - Authenticates user
-- Read and verify CSV data
-- Create a log file
+- Read and verify XLSX data
 
-Once this setup is complete it will start looping through each row in CSV and try to:
-- Determine which client the row belongs to based on the client_name location key mapping
-- Add all client information if creating a new client
-- Determine which report the row belongs to based on the report_name location key mapping.
+Once this setup is complete it will start looping through each `Vulnerability` in the XLSX and try to:
+- Determine which client the row belongs to based on the `Company Name`
+- Determine which report the row belongs to based on the `Phase Name`
 - Add all report information if creating a new report
 - Create a new finding and add all finding information
-- If any asset location keys were mapped, create a new asset and add all asset information
 
-After parsing the CSV, the user can choose to import client, report, finding, and asset data directly into Plextrac via the API AND/OR save .ptrac files for each report that was parsed from the CSV. Importing data via the API allows you to create new clients and add any parsed client information, however, this requires multiple API calls per object and may take some time depending on CSV size. Generated .ptrac files can be imported into a client in Plextrac to create a new report that includes all report information that was parsed from the CSV. You can also import a .ptrac into an existing report in Plextrac to import the findings it contains.
+After parsing the XLSX, a .ptrac file will be generated. Generated .ptrac files can be imported into a client in Plextrac to create a new report that includes all report information that was parsed from the file. You can also import a .ptrac into an existing report in Plextrac to import the findings it contains.
 
 ## Logging
-The script is run in INFO mode so you can see progress on the command line. A log file will be created when the script is run and saved to the root directory where the script is. You can search this file for "WARNING" or "ERROR" to see if something did not get parsed or imported correctly. Any critical level issue will stop the script immediately.
+The script is run in INFO mode so you can see progress on the command line. A log file will be created when the script is run and saved to the root directory where the script is. You can search this file for "WARNING", "EXCEPTION, or "ERROR" to see if something did not get parsed or imported correctly. Any critical level issue will stop the script immediately.

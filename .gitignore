@@ -1,4 +1,5 @@
 config.yaml
 Pipfile.lock
 __pycache__/
-exported_ptracs/
+exported-ptracs/
+test/

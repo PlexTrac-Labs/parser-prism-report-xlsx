@@ -16,12 +16,14 @@ retries = 0
 
 # description of script that will be print line by line when the script is run
 script_info = ["====================================================================",
-               "= General CSV Import Script                                        =",
+               "= Prism XLSX Import Script                                         =",
                "=------------------------------------------------------------------=",
-               "= Takes a CSV with rows representing client, report, finding and   =",
-               "= asset data and a CSV with how to map each column to a            =",
-               "= location in Plextrac.                                            =",
-               "= Parses the CSV and gives the user the option to import data      =",
-               "= directly to Plextrac or generate a Ptrac for each report parsed. =",
+               "= Takes 1 or multiple Prism Report XLSX export files and parses    =",
+               "= them to generated a PTRAC file that can be imported into         =",
+               "= Plextrac.                                                        =",
+               "=                                                                  =",
+               "= Can use a separate script to bulk import PTRAC files.            =",
+               "= https://github.com/PlexTrac-Labs/instance-data-backup-migration  =",
+               "=                                                                  =",
                "===================================================================="
             ]
