@@ -5,10 +5,7 @@ The file input for this script comes from the report XLSX export in Prism. Withi
 
 Once the file is downloaded from Prism this script can parse it into the data structure that Plextrac can handle importing. This script will only convert Prism's XLSX file into a PTRAC file that Plextrac can import.
 
-This script can be used with 2 purposes in mind. Moving a single report, or migrating all report data from Prism to Plextrac. The script supports the input of a single XLSX file or a folder path to a directory containing multiple XLSX files from Prism. If you only need to move a single report, the generated PTRAC can be imported directly into the client you want to move the report to in th ePlextrac platform. If you are doing a bulk migration of data you can use our [instance-data-backup-migration](https://github.com/PlexTrac-Labs/instance-data-backup-migration) script to bulk import all the generated PTRACs into Plextrac at once. In the instance-data-backup-migration script you will use the Reports workflow and bulk select all the PTRACs to import.
-
-
-This script will only create new data and won't try to merge the data it parses from the XLSX file into existing reports in Plextrac. It will only look for existing clients in Plextrac with the same name as the Company Name parsed from Prism. If a report is found to have the same Company Name as an existing client in PLextrac the report will get imported under that client. Otherwise a new client will be create and the report imported under this new client.
+This script can be used with 2 purposes in mind. Moving a single report, or migrating all report data from Prism to Plextrac. The script supports the input of a single XLSX file or a folder path to a directory containing multiple XLSX files from Prism. If you only need to move a single report, the generated PTRAC can be imported directly into the client you want to move the report to in the Plextrac platform. If you are doing a bulk migration of data you can use our [instance-data-backup-migration](https://github.com/PlexTrac-Labs/instance-data-backup-migration) script to bulk import all the generated PTRACs into Plextrac at once. In the instance-data-backup-migration script you will use the Reports workflow and bulk select all the PTRACs to import.
 
 # Requirements
 - [Python 3+](https://www.python.org/downloads/)
